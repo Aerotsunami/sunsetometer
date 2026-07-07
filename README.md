@@ -27,37 +27,6 @@ The app also shows a **"When to watch"** panel: golden hour, peak-color window (
 - `sw.js` — service worker; caches the app shell for install/offline (weather responses are never cached)
 - `icons/` — app icons (192, 512, maskable, apple-touch)
 
-## Deploy to GitHub Pages
-
-### Option A — command line (fastest)
-
-From the folder containing these files:
-
-```bash
-git init
-git add .
-git commit -m "Sunsetometer PWA"
-git branch -M main
-# create an empty repo on github.com first, then:
-git remote add origin https://github.com/<your-username>/sunsetometer.git
-git push -u origin main
-```
-
-Then on GitHub: **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `main` / `(root)` → Save**. After ~1 minute the app is live at:
-
-```
-https://<your-username>.github.io/sunsetometer/
-```
-
-### Option B — no command line
-
-1. Create a new repository on [github.com/new](https://github.com/new) (e.g. `sunsetometer`), public.
-2. On the repo page click **Add file → Upload files**, drag in `index.html`, `manifest.webmanifest`, `sw.js` and the `icons` folder, then **Commit changes**.
-3. **Settings → Pages → Source: Deploy from a branch → `main` / `(root)` → Save**.
-4. Open the `https://<your-username>.github.io/sunsetometer/` URL, then on your phone use **Add to Home Screen** to install it.
-
-> All paths are relative, so it works both at a repo subpath (`/sunsetometer/`) and at a domain root. GitHub Pages serves over HTTPS, which geolocation and the service worker require.
-
 ## Run locally
 
 A service worker needs http (not `file://`):
