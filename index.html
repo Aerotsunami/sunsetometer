@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#140c2d">
+<title>Sunsetometer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Predict how beautiful the sunset will be from weather factors">
+<style>
+  :root{
+    --night-1:#0c0722; --night-2:#1a0e3a; --dusk:#3a154e;
+    --orange:#ff8c42; --coral:#ff5e5b; --pink:#ff6b9d; --gold:#ffd93d;
+    --ink:#ffe9d6; --muted:#b59ec9; --card:rgba(255,255,255,.05);
+    --line:rgba(255,180,120,.16);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    color:var(--ink); min-height:100vh; min-height:100dvh;
+    background:
+      radial-gradient(120% 80% at 50% 120%, #ff8c42 0%, #ff5e5b 12%, #b5326b 30%, transparent 55%),
+      linear-gradient(180deg, var(--night-1) 0%, var(--night-2) 45%, var(--dusk) 100%);
+    background-attachment:fixed;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap{max-width:520px; margin:0 auto; padding:22px 18px 60px}
+  header{position:relative; text-align:center; margin-bottom:18px}
+  h1{font-size:26px; margin:0; letter-spacing:.5px;
+     background:linear-gradient(90deg,var(--gold),var(--pink)); -webkit-background-clip:text;
+     background-clip:text; color:transparent; font-weight:800}
+  .sub{color:var(--muted); font-size:13px; margin-top:4px}
+  #lang{position:absolute; top:0; right:0; padding:7px 11px; font-size:13px; font-weight:700;
+    background:rgba(255,255,255,.08); color:var(--ink); border:1px solid var(--line); border-radius:10px}
+
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:18px;
+    padding:14px; margin-bottom:14px; backdrop-filter:blur(6px)}
+
+  .search{display:flex; gap:8px}
+  input[type=text]{flex:1; background:rgba(0,0,0,.25); border:1px solid var(--line);
+    color:var(--ink); border-radius:12px; padding:12px 14px; font-size:15px; outline:none}
+  input::placeholder{color:#8f7caa}
+  button{border:none; border-radius:12px; padding:12px 14px; font-size:15px; font-weight:600;
+    color:#2a0f16; cursor:pointer; background:linear-gradient(135deg,var(--gold),var(--orange))}
+  button.ghost{background:rgba(255,255,255,.08); color:var(--ink); border:1px solid var(--line)}
+  button:active{transform:translateY(1px)}
+  .row{display:flex; gap:8px; margin-top:8px}
+  .row button{flex:1}
+  .results{margin-top:8px; display:none}
+  .results .item{padding:11px 12px; border-radius:10px; cursor:pointer; font-size:14px;
+    border:1px solid transparent}
+  .results .item:hover,.results .item:active{background:rgba(255,255,255,.07); border-color:var(--line)}
+  .results .item small{color:var(--muted)}
+
+  .place{font-size:15px; font-weight:600; text-align:center}
+  .days{display:flex; gap:6px; overflow-x:auto; padding:4px 2px 2px; -webkit-overflow-scrolling:touch}
+  .day{flex:0 0 auto; min-width:56px; text-align:center; padding:8px 6px; border-radius:12px;
+    background:rgba(0,0,0,.22); border:1px solid var(--line); cursor:pointer; font-size:12px}
+  .day .dow{color:var(--muted); text-transform:capitalize}
+  .day .dnum{font-size:17px; font-weight:700; margin-top:2px}
+  .day.active{background:linear-gradient(135deg,rgba(255,217,61,.28),rgba(255,107,157,.28));
+    border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset}
+
+  .gauge{display:flex; flex-direction:column; align-items:center; padding:8px 0 2px}
+  .ring{position:relative; width:210px; height:210px}
+  .ring svg{transform:rotate(-90deg)}
+  .score{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center}
+  .score .num{font-size:56px; font-weight:800; line-height:1;
+    background:linear-gradient(180deg,var(--gold),var(--coral)); -webkit-background-clip:text;
+    background-clip:text; color:transparent}
+  .score .pct{font-size:20px; color:var(--muted); font-weight:600; margin-top:2px}
+  .verdict{font-size:18px; font-weight:700; margin-top:10px; text-align:center}
+  .sunmeta{color:var(--muted); font-size:13px; margin-top:4px; text-align:center}
+
+  .win{display:flex; align-items:center; gap:12px; padding:10px 6px; border-top:1px solid var(--line)}
+  .win:first-child{border-top:none}
+  .win .ico{font-size:22px; width:26px; text-align:center; flex:0 0 auto}
+  .win .wtxt{flex:1}
+  .win .wname{font-weight:600; font-size:14.5px}
+  .win .wdesc{color:var(--muted); font-size:12px; margin-top:2px; line-height:1.4}
+  .win .wtime{font-variant-numeric:tabular-nums; font-weight:700; font-size:15px; white-space:nowrap;
+    background:linear-gradient(90deg,var(--gold),var(--pink)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .win.peak{background:rgba(255,217,61,.08); border-radius:12px}
+
+  .factor{padding:12px 4px; border-top:1px solid var(--line)}
+  .factor:first-child{border-top:none}
+  .fhead{display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+  .fname{font-weight:600; font-size:15px}
+  .fval{color:var(--muted); font-size:13px}
+  .fcontrib{font-variant-numeric:tabular-nums; font-weight:700; font-size:14px; white-space:nowrap}
+  .barcap{color:var(--muted); font-size:11px; margin-top:8px; letter-spacing:.3px}
+  .bar{height:9px; border-radius:6px; background:rgba(0,0,0,.28); margin-top:4px; overflow:hidden; position:relative}
+  .bar > i{display:block; height:100%; border-radius:6px;
+    background:linear-gradient(90deg,var(--coral),var(--orange),var(--gold)); transition:width .5s ease}
+  .bar .maxmark{position:absolute; top:-3px; bottom:-3px; width:2px; background:rgba(255,255,255,.35)}
+  .fdesc{color:var(--muted); font-size:12.5px; margin-top:7px; line-height:1.45}
+
+  .hint{color:var(--muted); font-size:12.5px; line-height:1.5; margin-top:6px}
+  .status{text-align:center; color:var(--muted); font-size:14px; padding:18px}
+  .err{color:var(--coral)}
+  #result{display:none}
+  .spinner{width:30px;height:30px;border:3px solid rgba(255,255,255,.15);
+    border-top-color:var(--gold); border-radius:50%; animation:spin 1s linear infinite; margin:12px auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  footer{text-align:center; color:var(--muted); font-size:11.5px; margin-top:24px; line-height:1.6}
+  a{color:var(--gold)}
+  .secttl{font-weight:700; margin:2px 4px 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <button id="lang"></button>
+    <h1 id="appName">☀ Sunsetometer</h1>
+    <div class="sub" id="subtitle"></div>
+  </header>
+
+  <div class="panel">
+    <div class="search">
+      <input id="q" type="text" autocomplete="off">
+      <button id="find"></button>
+    </div>
+    <div class="row">
+      <button id="geo" class="ghost"></button>
+    </div>
+    <div id="results" class="results"></div>
+  </div>
+
+  <div id="loc" class="panel" style="display:none">
+    <div id="place" class="place"></div>
+    <div id="days" class="days" style="margin-top:12px"></div>
+  </div>
+
+  <div id="status" class="status" style="display:none"></div>
+
+  <div id="result">
+    <div class="panel">
+      <div class="gauge">
+        <div class="ring">
+          <svg width="210" height="210" viewBox="0 0 210 210">
+            <circle cx="105" cy="105" r="92" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="16"/>
+            <circle id="arc" cx="105" cy="105" r="92" fill="none" stroke="url(#g)" stroke-width="16"
+              stroke-linecap="round" stroke-dasharray="578" stroke-dashoffset="578"/>
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ff5e5b"/>
+                <stop offset="0.5" stop-color="#ff8c42"/>
+                <stop offset="1" stop-color="#ffd93d"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="score"><div class="num" id="scoreNum">–</div><div class="pct" id="of100">/ 100</div></div>
+        </div>
+        <div class="verdict" id="verdict"></div>
+        <div class="sunmeta" id="sunmeta"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="secttl" id="whenTitle"></div>
+      <div id="windows"></div>
+      <div class="hint" id="watchTip"></div>
+    </div>
+
+    <div class="panel">
+      <div class="secttl" id="breakdownTitle"></div>
+      <div id="factors"></div>
+      <div class="hint" id="breakdownHint"></div>
+    </div>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+// ===================== i18n =====================
+const I18N = {
+  en: {
+    other:'RU', appName:'☀ Sunsetometer', title:'Sunsetometer',
+    subtitle:'sunset beauty forecast · Open-Meteo',
+    placeholder:'City (e.g. London)', find:'Find', myLoc:'📍 My location',
+    myLocName:'My location', myLocLabel:(a,b)=>`My location (${a}, ${b})`,
+    searching:'Searching city…', loading:'Loading forecast…', locating:'Getting your location…',
+    notFound:'City not found. Try another spelling.',
+    searchErr:m=>'Search error: '+m, err:m=>'Error: '+m,
+    geoUnsupported:'Geolocation is not supported', geoFail:m=>'Could not locate: '+m,
+    weatherDown:'Weather service unavailable',
+    today:'today', dow:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], of100:'/ 100',
+    sunsetAt:t=>`Sunset at ${t}`,
+    whenTitle:'When to watch',
+    windows:[
+      { ico:'🌅', name:'Golden hour', desc:'Soft warm light and long shadows — arrive early.' },
+      { ico:'🔥', name:'Peak colors', desc:'Best time: from ~10 min before sunset through the afterglow up to ~25 min after.' },
+      { ico:'🌆', name:'Blue hour', desc:'After sundown — deep blue and violet sky tones.' },
+    ],
+    watchTip:(best,total)=>{
+      const e = total>=58 ? 'The forecast is good — head out early and catch the afterglow.'
+              : total>=42 ? 'The sunset is average, but peak colors still fall in this window.'
+              : 'Peak colors fall in this window, though today’s sunset looks modest.';
+      return `Above all, be in place with an open western horizon by <b>${best}</b>. ${e}`;
+    },
+    breakdownTitle:'What drives the forecast',
+    favorability:'favorability',
+    breakdownHint:'The bar shows how <b>favorable</b> a value is for a beautiful sunset, not its amount. High clouds, for example, are best in moderation: both 0% and 100% score low, while the ideal is around 50%. On the left is the factor’s contribution to the total (points out of its max).',
+    verdicts:[
+      [72,'A spectacular sunset is likely 🔥','var(--gold)'],
+      [58,'A colorful, good sunset','var(--orange)'],
+      [42,'An average sunset','var(--orange)'],
+      [26,'A rather dull sunset','var(--muted)'],
+      [-1,'A flat, colorless sunset','var(--muted)'],
+    ],
+    kmFmt:v=>(v/1000).toFixed(0)+' km',
+    factors:{
+      high:{ name:'High clouds',
+        good:'Cirrus and altocumulus catch the red light and blaze. Ideal ~30–70%.',
+        tag:v=> v<15?'too little — nothing to light up' : v>85?'too thick — mutes the light'
+              : (v>=30&&v<=70)?'ideal':'close to ideal' },
+      low:{ name:'Horizon clarity (low clouds)',
+        good:'You need a clear strip at the western horizon so the rays light the clouds from below. The less, the better.',
+        tag:v=> v<10?'clear horizon — excellent' : v<35?'mostly clear horizon'
+              : v<65?'horizon partly blocked':'horizon blocked — bad' },
+      mid:{ name:'Mid-level clouds',
+        good:'They add depth and color, but a solid deck kills the light. Sweet spot ~10–50%.',
+        tag:v=> v>80?'too thick — mutes the light' : (v>=10&&v<=50)?'just right'
+              : v<10?'almost none':'a bit much' },
+      vis:{ name:'Air clarity',
+        good:'High visibility means clean, saturated colors. Haze and fog wash the sunset out.',
+        tag:v=> v>=18000?'clean air' : v>=10000?'light haze' : v>=4000?'noticeable haze':'fog/murk — bad' },
+      hum:{ name:'Humidity',
+        good:'Dry air gives cleaner, brighter colors; high humidity mutes them.',
+        tag:v=> v<45?'dry — saturated colors' : v<65?'moderate humidity'
+              : v<85?'humid — muted colors':'very humid — bad' },
+    },
+    footer:'Heuristic model: a real sunset also depends on what happens beyond the horizon.<br>Data: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · no keys, no server',
+  },
+
+  ru: {
+    other:'EN', appName:'☀ Закатометр', title:'Закатометр',
+    subtitle:'прогноз красоты заката · Open-Meteo',
+    placeholder:'Город (напр. Москва)', find:'Найти', myLoc:'📍 Моё местоположение',
+    myLocName:'Моё местоположение', myLocLabel:(a,b)=>`Моё местоположение (${a}, ${b})`,
+    searching:'Ищу город…', loading:'Загружаю прогноз…', locating:'Определяю местоположение…',
+    notFound:'Город не найден. Попробуйте иначе.',
+    searchErr:m=>'Ошибка поиска: '+m, err:m=>'Ошибка: '+m,
+    geoUnsupported:'Геолокация не поддерживается', geoFail:m=>'Не удалось определить: '+m,
+    weatherDown:'Сервис погоды недоступен',
+    today:'сегодня', dow:['вс','пн','вт','ср','чт','пт','сб'], of100:'/ 100',
+    sunsetAt:t=>`Закат в ${t}`,
+    whenTitle:'Когда смотреть',
+    windows:[
+      { ico:'🌅', name:'Золотой час', desc:'Мягкий тёплый свет, длинные тени — приходите заранее.' },
+      { ico:'🔥', name:'Пик красок', desc:'Лучшее время: от ~10 мин до заката и послесвечение до ~25 мин после.' },
+      { ico:'🌆', name:'Синий час', desc:'После захода солнца — глубокие сине-фиолетовые тона неба.' },
+    ],
+    watchTip:(best,total)=>{
+      const e = total>=58 ? 'Прогноз хороший — стоит выбраться заранее и захватить послесвечение.'
+              : total>=42 ? 'Закат средний, но пик красок всё равно приходится на это окно.'
+              : 'Пик красок в это окно, хотя сегодня закат обещает быть скромным.';
+      return `Главное — быть на месте с открытым западным горизонтом к <b>${best}</b>. ${e}`;
+    },
+    breakdownTitle:'Из чего складывается прогноз',
+    favorability:'благоприятность',
+    breakdownHint:'Шкала показывает <b>благоприятность</b> значения для красивого заката, а не его количество. Например, высокие облака хороши в меру: и 0%, и 100% дают низкий балл, а идеал — около 50%. Слева — вклад фактора в общий счёт (баллы из его максимума).',
+    verdicts:[
+      [72,'Великолепный закат ожидается 🔥','var(--gold)'],
+      [58,'Хороший, красочный закат','var(--orange)'],
+      [42,'Средний закат','var(--orange)'],
+      [26,'Слабоватый закат','var(--muted)'],
+      [-1,'Невзрачный закат','var(--muted)'],
+    ],
+    kmFmt:v=>(v/1000).toFixed(0)+' км',
+    factors:{
+      high:{ name:'Высокие облака',
+        good:'Перистые и высококучевые ловят красный свет и вспыхивают. Идеально ~30–70%.',
+        tag:v=> v<15?'мало — свету нечего подсвечивать' : v>85?'слишком плотный слой — глушит свет'
+              : (v>=30&&v<=70)?'идеально':'близко к идеалу' },
+      low:{ name:'Чистота горизонта (низкие облака)',
+        good:'Нужна чистая полоса у горизонта на западе, чтобы лучи подсветили облака снизу. Чем меньше — тем лучше.',
+        tag:v=> v<10?'горизонт чистый — отлично' : v<35?'горизонт в основном чистый'
+              : v<65?'горизонт частично закрыт':'горизонт закрыт — плохо' },
+      mid:{ name:'Средние облака',
+        good:'Немного добавляют объём и цвет, но сплошной слой глушит свет. Оптимум ~10–50%.',
+        tag:v=> v>80?'слишком плотные — глушат свет' : (v>=10&&v<=50)?'в самый раз'
+              : v<10?'почти нет':'многовато' },
+      vis:{ name:'Прозрачность воздуха',
+        good:'Высокая видимость — чистые насыщенные цвета. Дымка и туман размывают закат.',
+        tag:v=> v>=18000?'воздух чистый' : v>=10000?'лёгкая дымка' : v>=4000?'заметная дымка':'туман/муть — плохо' },
+      hum:{ name:'Влажность воздуха',
+        good:'Сухой воздух даёт чище и ярче цвета; высокая влажность их приглушает.',
+        tag:v=> v<45?'сухо — цвета насыщенные' : v<65?'умеренная влажность'
+              : v<85?'влажно — цвета приглушены':'очень влажно — плохо' },
+    },
+    footer:'Модель эвристическая: реальный закат зависит и от того, что происходит за горизонтом.<br>Данные: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> · без ключей и серверов',
+  },
+};
+
+let lang = (localStorage.getItem('sunsetometer_lang')) || (navigator.language||'en').slice(0,2);
+if(!I18N[lang]) lang = 'en';
+let L = I18N[lang];
+
+// ===================== Scoring model =====================
+const WEIGHTS = { high:30, low:25, mid:15, vis:15, hum:15 };
+const clamp = (x,a,b)=>Math.max(a, Math.min(b, x));
+const gauss = (x,mu,s)=>Math.exp(-Math.pow((x-mu)/s, 2));
+const FKEYS = ['high','low','mid','vis','hum'];
+const PCT = v=>Math.round(v)+'%';
+
+const SUB = {
+  high: c => clamp(gauss(c, 45, 32), 0, 1),
+  low:  c => clamp(1 - Math.pow(c/70, 1.3), 0.05, 1),
+  mid:  c => clamp(gauss(c, 30, 42), 0, 1),
+  vis:  v => clamp(v/20000, 0.1, 1),
+  hum:  h => clamp((100 - h)/70, 0.05, 1),
+};
+const FMT = { high:PCT, low:PCT, mid:PCT, vis:v=>L.kmFmt(v), hum:PCT };
+
+function evaluate(m){
+  let total = 0;
+  const parts = FKEYS.map(k=>{
+    const s = SUB[k](m[k]); const w = WEIGHTS[k]; const contrib = s*w;
+    total += contrib;
+    return { key:k, value:m[k], sub:s, weight:w, contrib };
+  });
+  return { total: Math.round(total), parts };
+}
+function verdictOf(t){
+  for(const [thr,txt,col] of L.verdicts){ if(t>=thr) return [txt,col]; }
+}
+
+// ===================== Data =====================
+let DATA = null, dayIndex = 0;
+const $ = s => document.querySelector(s);
+
+async function geocode(name){
+  const u = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=6&language=${lang}&format=json`;
+  const r = await fetch(u); const j = await r.json();
+  return j.results || [];
+}
+async function loadForecast(lat, lon){
+  const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+    + `&hourly=cloudcover_low,cloudcover_mid,cloudcover_high,visibility,relative_humidity_2m,temperature_2m`
+    + `&daily=sunset&timezone=auto&forecast_days=7`;
+  const r = await fetch(u);
+  if(!r.ok) throw new Error(L.weatherDown);
+  return r.json();
+}
+function nearestHourIndex(times, targetISO){
+  const t = new Date(targetISO).getTime();
+  let best=0, bd=Infinity;
+  for(let i=0;i<times.length;i++){
+    const d = Math.abs(new Date(times[i]).getTime() - t);
+    if(d<bd){ bd=d; best=i; }
+  }
+  return best;
+}
+function metricsForDay(i){
+  const sunset = DATA.daily.sunset[i];
+  const h = DATA.hourly;
+  const idx = nearestHourIndex(h.time, sunset);
+  return { sunset, temp:h.temperature_2m[idx], m:{
+    high:h.cloudcover_high[idx], low:h.cloudcover_low[idx], mid:h.cloudcover_mid[idx],
+    vis:h.visibility[idx], hum:h.relative_humidity_2m[idx],
+  }};
+}
+
+// ===================== Render =====================
+function setArc(pct){ $('#arc').style.strokeDashoffset = 578 * (1 - pct/100); }
+const hm = d => String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+const addMin = (d,m)=>new Date(d.getTime()+m*60000);
+
+function renderDays(){
+  if(!DATA) return;
+  const box = $('#days'); box.innerHTML='';
+  DATA.daily.sunset.forEach((iso,i)=>{
+    const d = new Date(iso);
+    const el = document.createElement('div');
+    el.className = 'day'+(i===dayIndex?' active':'');
+    el.innerHTML = `<div class="dow">${i===0?L.today:L.dow[d.getDay()]}</div><div class="dnum">${d.getDate()}</div>`;
+    el.onclick = ()=>{ dayIndex=i; renderDays(); renderResult(); };
+    box.appendChild(el);
+  });
+}
+function renderWindows(st, total){
+  const offs = [[-60,0],[-10,25],[0,35]];
+  const box = $('#windows'); box.innerHTML='';
+  L.windows.forEach((w,i)=>{
+    const [a,b]=offs[i];
+    const el=document.createElement('div');
+    el.className='win '+(i===1?'peak':'');
+    el.innerHTML = `<div class="ico">${w.ico}</div>
+      <div class="wtxt"><div class="wname">${w.name}</div><div class="wdesc">${w.desc}</div></div>
+      <div class="wtime">${hm(addMin(st,a))}–${hm(addMin(st,b))}</div>`;
+    box.appendChild(el);
+  });
+  const best = `${hm(addMin(st,-10))}–${hm(addMin(st,25))}`;
+  $('#watchTip').innerHTML = L.watchTip(best, total);
+}
+function renderResult(){
+  if(!DATA) return;
+  const {sunset, m, temp} = metricsForDay(dayIndex);
+  const res = evaluate(m);
+
+  $('#result').style.display='block';
+  $('#scoreNum').textContent = res.total;
+  setArc(res.total);
+  const [txt,col] = verdictOf(res.total);
+  const v=$('#verdict'); v.textContent=txt; v.style.color=col;
+
+  const st = new Date(sunset);
+  $('#sunmeta').textContent = L.sunsetAt(hm(st)) + (temp!=null?` · ${Math.round(temp)}°C`:'');
+  renderWindows(st, res.total);
+
+  const f = $('#factors'); f.innerHTML='';
+  res.parts.forEach(p=>{
+    const fdef = L.factors[p.key];
+    const fillPct = Math.round(p.sub*100);
+    const tcol = p.sub>=0.75 ? 'var(--gold)' : p.sub>=0.45 ? 'var(--orange)' : 'var(--coral)';
+    const el = document.createElement('div');
+    el.className='factor';
+    el.innerHTML = `
+      <div class="fhead">
+        <span class="fname">${fdef.name}</span>
+        <span class="fcontrib">+${p.contrib.toFixed(1)} / ${p.weight}</span>
+      </div>
+      <div class="fval"><b style="color:${tcol}">${FMT[p.key](p.value)}</b> · <span style="color:${tcol}">${fdef.tag(p.value)}</span></div>
+      <div class="barcap">${L.favorability}: ${fillPct}%</div>
+      <div class="bar"><i style="width:${fillPct}%"></i><span class="maxmark" style="left:${p.weight}%"></span></div>
+      <div class="fdesc">${fdef.good}</div>`;
+    f.appendChild(el);
+  });
+}
+
+// static text
+function applyI18n(){
+  document.documentElement.lang = lang;
+  document.title = L.title;
+  $('#lang').textContent = L.other;
+  $('#appName').textContent = L.appName;
+  $('#subtitle').textContent = L.subtitle;
+  $('#q').placeholder = L.placeholder;
+  $('#find').textContent = L.find;
+  $('#geo').textContent = L.myLoc;
+  $('#of100').textContent = L.of100;
+  $('#whenTitle').textContent = L.whenTitle;
+  $('#breakdownTitle').textContent = L.breakdownTitle;
+  $('#breakdownHint').innerHTML = L.breakdownHint;
+  $('#footer').innerHTML = L.footer;
+  renderDays();
+  renderResult();
+}
+
+$('#lang').onclick = ()=>{
+  lang = (lang==='en') ? 'ru' : 'en';
+  L = I18N[lang];
+  localStorage.setItem('sunsetometer_lang', lang);
+  applyI18n();
+};
+
+// ===================== Actions =====================
+function showStatus(msg, spin, err){
+  const s=$('#status'); s.style.display='block';
+  s.innerHTML = (spin?'<div class="spinner"></div>':'') + `<div class="${err?'err':''}">${msg}</div>`;
+  $('#result').style.display='none';
+}
+function hideStatus(){ $('#status').style.display='none'; }
+function mapPlace(r){
+  return { name:r.name, lat:r.latitude, lon:r.longitude,
+    label:[r.name, r.admin1, r.country].filter(Boolean).join(', ') };
+}
+async function selectPlace(place){
+  $('#results').style.display='none';
+  $('#q').value = place.name;
+  $('#loc').style.display='block';
+  $('#place').textContent = place.label || place.name;
+  showStatus(L.loading, true);
+  try{
+    DATA = await loadForecast(place.lat, place.lon);
+    dayIndex = 0; hideStatus(); renderDays(); renderResult();
+  }catch(e){ showStatus(L.err(e.message), false, true); }
+}
+async function doSearch(){
+  const name = $('#q').value.trim();
+  if(!name) return;
+  showStatus(L.searching, true);
+  try{
+    const list = await geocode(name);
+    hideStatus();
+    if(!list.length){ showStatus(L.notFound, false, true); return; }
+    if(list.length===1){ selectPlace(mapPlace(list[0])); return; }
+    const box=$('#results'); box.style.display='block'; box.innerHTML='';
+    list.forEach(r=>{
+      const p = mapPlace(r);
+      const el=document.createElement('div'); el.className='item';
+      el.innerHTML = `${r.name} <small>${[r.admin1, r.country].filter(Boolean).join(', ')}</small>`;
+      el.onclick=()=>selectPlace(p);
+      box.appendChild(el);
+    });
+  }catch(e){ showStatus(L.searchErr(e.message), false, true); }
+}
+$('#find').onclick = doSearch;
+$('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
+$('#geo').onclick = ()=>{
+  if(!navigator.geolocation){ showStatus(L.geoUnsupported, false, true); return; }
+  showStatus(L.locating, true);
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      const {latitude, longitude} = pos.coords;
+      selectPlace({ name:L.myLocName, lat:latitude.toFixed(4), lon:longitude.toFixed(4),
+        label:L.myLocLabel(latitude.toFixed(2), longitude.toFixed(2)) });
+    },
+    err=>showStatus(L.geoFail(err.message), false, true),
+    { enableHighAccuracy:false, timeout:10000, maximumAge:600000 }
+  );
+};
+
+// init app
+applyI18n();
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
