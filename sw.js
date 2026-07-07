@@ -1,6 +1,6 @@
 // Service worker: кэш оболочки приложения для оффлайн-установки.
 // Погодные ответы НЕ кэшируем — они должны быть свежими.
-const CACHE = 'sunsetometer-v2';
+const CACHE = 'sunsetometer-v23';
 const SHELL = [
   './',
   './index.html',
